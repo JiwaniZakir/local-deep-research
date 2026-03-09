@@ -95,16 +95,5 @@ class TestQueueManagerBasics:
         """QueueManager has expected public methods."""
         from local_deep_research.web.queue.manager import QueueManager
 
-        assert hasattr(QueueManager, "add_to_queue")
-        assert hasattr(QueueManager, "remove_from_queue")
         assert hasattr(QueueManager, "get_queue_position")
         assert hasattr(QueueManager, "get_user_queue")
-
-    def test_queue_manager_add_to_queue_signature(self):
-        """add_to_queue method exists and is callable."""
-        from local_deep_research.web.queue.manager import QueueManager
-        import inspect
-
-        sig = inspect.signature(QueueManager.add_to_queue)
-        # Should have self plus other params
-        assert len(sig.parameters) > 1

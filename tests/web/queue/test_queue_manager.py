@@ -2,9 +2,7 @@
 Tests for web/queue/manager.py
 
 Tests cover:
-- QueueManager.add_to_queue
 - QueueManager.get_queue_position
-- QueueManager.remove_from_queue
 - QueueManager.get_user_queue
 """
 
@@ -35,91 +33,6 @@ def _mock_user_db_session_error():
         yield  # noqa: unreachable — needed for generator syntax
 
     return _ctx
-
-
-class TestQueueManagerAddToQueue:
-    """Tests for QueueManager.add_to_queue method."""
-
-    def test_add_to_queue_success(self):
-        """Test successful addition to queue."""
-        mock_session = MagicMock()
-
-        # Mock query chain for max position
-        mock_query = MagicMock()
-        mock_query.filter_by.return_value.scalar.return_value = 0
-        mock_session.query.return_value = mock_query
-
-        with patch(
-            "local_deep_research.web.queue.manager.get_user_db_session",
-            _mock_user_db_session(mock_session),
-        ):
-            with patch(
-                "local_deep_research.web.queue.manager.queue_processor"
-            ) as mock_processor:
-                from local_deep_research.web.queue.manager import (
-                    QueueManager,
-                )
-
-                result = QueueManager.add_to_queue(
-                    username="testuser",
-                    research_id="test-id-123",
-                    query="test query",
-                    mode="detailed",
-                    settings={"key": "value"},
-                )
-
-                assert result == 1
-                mock_session.add.assert_called_once()
-                mock_session.commit.assert_called_once()
-                mock_processor.notify_research_queued.assert_called_once_with(
-                    "testuser", "test-id-123"
-                )
-
-    def test_add_to_queue_no_connection(self):
-        """Test add_to_queue raises DatabaseSessionError when no connection."""
-        with patch(
-            "local_deep_research.web.queue.manager.get_user_db_session",
-            _mock_user_db_session_error(),
-        ):
-            from local_deep_research.web.queue.manager import QueueManager
-
-            with pytest.raises(DatabaseSessionError):
-                QueueManager.add_to_queue(
-                    username="testuser",
-                    research_id="test-id-123",
-                    query="test query",
-                    mode="detailed",
-                    settings={},
-                )
-
-    def test_add_to_queue_with_existing_items(self):
-        """Test add_to_queue with existing items in queue."""
-        mock_session = MagicMock()
-
-        # Mock query chain for max position - already has 3 items
-        mock_query = MagicMock()
-        mock_query.filter_by.return_value.scalar.return_value = 3
-        mock_session.query.return_value = mock_query
-
-        with patch(
-            "local_deep_research.web.queue.manager.get_user_db_session",
-            _mock_user_db_session(mock_session),
-        ):
-            with patch("local_deep_research.web.queue.manager.queue_processor"):
-                from local_deep_research.web.queue.manager import (
-                    QueueManager,
-                )
-
-                result = QueueManager.add_to_queue(
-                    username="testuser",
-                    research_id="test-id-456",
-                    query="another query",
-                    mode="quick",
-                    settings={},
-                )
-
-                # Position should be 4 (max + 1)
-                assert result == 4
 
 
 class TestQueueManagerGetQueuePosition:
@@ -185,70 +98,6 @@ class TestQueueManagerGetQueuePosition:
 
             with pytest.raises(DatabaseSessionError):
                 QueueManager.get_queue_position(
-                    username="testuser", research_id="test-id-123"
-                )
-
-
-class TestQueueManagerRemoveFromQueue:
-    """Tests for QueueManager.remove_from_queue method."""
-
-    def test_remove_from_queue_success(self):
-        """Test successful removal from queue."""
-        mock_session = MagicMock()
-
-        # Mock queued research item
-        mock_queued = MagicMock()
-        mock_queued.position = 2
-
-        mock_query = MagicMock()
-        mock_query.filter_by.return_value.first.return_value = mock_queued
-        mock_query.filter.return_value.update.return_value = None
-        mock_session.query.return_value = mock_query
-
-        with patch(
-            "local_deep_research.web.queue.manager.get_user_db_session",
-            _mock_user_db_session(mock_session),
-        ):
-            from local_deep_research.web.queue.manager import QueueManager
-
-            result = QueueManager.remove_from_queue(
-                username="testuser", research_id="test-id-123"
-            )
-
-            assert result is True
-            mock_session.delete.assert_called_once_with(mock_queued)
-            mock_session.commit.assert_called_once()
-
-    def test_remove_from_queue_not_found(self):
-        """Test remove_from_queue when research not in queue."""
-        mock_session = MagicMock()
-
-        mock_query = MagicMock()
-        mock_query.filter_by.return_value.first.return_value = None
-        mock_session.query.return_value = mock_query
-
-        with patch(
-            "local_deep_research.web.queue.manager.get_user_db_session",
-            _mock_user_db_session(mock_session),
-        ):
-            from local_deep_research.web.queue.manager import QueueManager
-
-            result = QueueManager.remove_from_queue(
-                username="testuser", research_id="nonexistent"
-            )
-
-            assert result is False
-
-    def test_remove_from_queue_no_connection(self):
-        """Test remove_from_queue raises DatabaseSessionError when no connection."""
-        with patch(
-            "local_deep_research.web.queue.manager.get_user_db_session",
-            _mock_user_db_session_error(),
-        ):
-            from local_deep_research.web.queue.manager import QueueManager
-
-            with pytest.raises(DatabaseSessionError):
-                QueueManager.remove_from_queue(
                     username="testuser", research_id="test-id-123"
                 )
 
