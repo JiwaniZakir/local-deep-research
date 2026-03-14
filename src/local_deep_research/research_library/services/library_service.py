@@ -710,7 +710,7 @@ class LibraryService:
                     file_path = get_absolute_path_from_settings(
                         tracker.file_path
                     )
-                    if file_path and file_path.exists():
+                    if file_path and file_path.is_file():
                         file_path.unlink()
                         logger.info(f"Deleted file: {file_path}")
                 except Exception:
@@ -754,7 +754,7 @@ class LibraryService:
                     validated_path = PathValidator.validate_safe_path(
                         tracker.file_path, library_root, allow_absolute=False
                     )
-                    if validated_path and validated_path.exists():
+                    if validated_path and validated_path.is_file():
                         return open_file_location(str(validated_path))
                 except ValueError as e:
                     logger.warning(f"Path validation failed: {e}")
@@ -827,7 +827,9 @@ class LibraryService:
                     "research_library.storage_path",
                     str(get_library_directory()),
                 )
-            ).expanduser()
+            )
+            .expanduser()
+            .resolve()
         )
 
     def sync_library_with_filesystem(self) -> Dict:
@@ -868,7 +870,7 @@ class LibraryService:
                     file_path = get_absolute_path_from_settings(
                         tracker.file_path
                     )
-                    if file_path and file_path.exists():
+                    if file_path and file_path.is_file():
                         stats["files_found"] += 1
                     else:
                         # File missing or path invalid - mark for re-download

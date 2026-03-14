@@ -12,6 +12,11 @@ Covers:
 from contextlib import contextmanager
 from unittest.mock import Mock, MagicMock, patch
 
+from local_deep_research.constants import (
+    FILE_PATH_METADATA_ONLY,
+    FILE_PATH_TEXT_ONLY,
+)
+
 
 # ============== Helper ==============
 
@@ -76,7 +81,7 @@ class TestDeleteDocumentHappyPaths:
 
         # Mock file path resolution
         mock_path = MagicMock()
-        mock_path.exists.return_value = True
+        mock_path.is_file.return_value = True
         mocker.patch(
             "local_deep_research.research_library.services.library_service.get_absolute_path_from_settings",
             return_value=mock_path,
@@ -139,7 +144,7 @@ class TestDeleteDocumentHappyPaths:
         _mock_session_cm(mocker, mock_session)
 
         mock_path = MagicMock()
-        mock_path.exists.return_value = False
+        mock_path.is_file.return_value = False
         mocker.patch(
             "local_deep_research.research_library.services.library_service.get_absolute_path_from_settings",
             return_value=mock_path,
@@ -215,7 +220,7 @@ class TestDeleteDocumentHappyPaths:
         _mock_session_cm(mocker, mock_session)
 
         mock_path = MagicMock()
-        mock_path.exists.return_value = True
+        mock_path.is_file.return_value = True
         mock_path.unlink.side_effect = OSError("Permission denied")
         mocker.patch(
             "local_deep_research.research_library.services.library_service.get_absolute_path_from_settings",
@@ -257,7 +262,7 @@ class TestDeleteDocumentHappyPaths:
         _mock_session_cm(mocker, mock_session)
 
         mock_path = MagicMock()
-        mock_path.exists.return_value = False
+        mock_path.is_file.return_value = False
         mocker.patch(
             "local_deep_research.research_library.services.library_service.get_absolute_path_from_settings",
             return_value=mock_path,
@@ -367,7 +372,9 @@ class TestGetDocumentByIdHappyPaths:
 
     def test_file_path_metadata_only_has_pdf_false(self, mocker):
         """file_path='metadata_only' means has_pdf is False."""
-        service, _, _ = self._setup_found_doc(mocker, file_path="metadata_only")
+        service, _, _ = self._setup_found_doc(
+            mocker, file_path=FILE_PATH_METADATA_ONLY
+        )
         result = service.get_document_by_id("doc-123")
 
         assert result["has_pdf"] is False
@@ -375,7 +382,7 @@ class TestGetDocumentByIdHappyPaths:
     def test_file_path_text_only_has_pdf_false(self, mocker):
         """file_path='text_only_not_stored' means has_pdf is False."""
         service, _, _ = self._setup_found_doc(
-            mocker, file_path="text_only_not_stored"
+            mocker, file_path=FILE_PATH_TEXT_ONLY
         )
         result = service.get_document_by_id("doc-123")
 
@@ -400,7 +407,7 @@ class TestGetDocumentByIdHappyPaths:
     def test_has_pdf_via_database_storage_mode(self, mocker):
         """storage_mode='database' + no file_path checks _has_blob_in_db."""
         service, mock_doc, mock_session = self._setup_found_doc(
-            mocker, file_path="metadata_only", storage_mode="database"
+            mocker, file_path=FILE_PATH_METADATA_ONLY, storage_mode="database"
         )
         # Mock _has_blob_in_db to return True
         mocker.patch.object(service, "_has_blob_in_db", return_value=True)
@@ -564,7 +571,7 @@ class TestSyncLibraryWithFilesystem:
         _mock_session_cm(mocker, mock_session)
 
         mock_path = MagicMock()
-        mock_path.exists.return_value = True
+        mock_path.is_file.return_value = True
         mocker.patch(
             "local_deep_research.research_library.services.library_service.get_absolute_path_from_settings",
             return_value=mock_path,
@@ -603,7 +610,7 @@ class TestSyncLibraryWithFilesystem:
         _mock_session_cm(mocker, mock_session)
 
         mock_path = MagicMock()
-        mock_path.exists.return_value = False
+        mock_path.is_file.return_value = False
         mocker.patch(
             "local_deep_research.research_library.services.library_service.get_absolute_path_from_settings",
             return_value=mock_path,
@@ -686,9 +693,9 @@ class TestSyncLibraryWithFilesystem:
 
         # First 2 files exist, third missing
         paths = [MagicMock(), MagicMock(), MagicMock()]
-        paths[0].exists.return_value = True
-        paths[1].exists.return_value = True
-        paths[2].exists.return_value = False
+        paths[0].is_file.return_value = True
+        paths[1].is_file.return_value = True
+        paths[2].is_file.return_value = False
 
         path_call_count = {"n": 0}
 

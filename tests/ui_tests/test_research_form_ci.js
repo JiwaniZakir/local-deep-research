@@ -371,6 +371,7 @@ const AdvancedOptionsTests = {
         await delay(300);
 
         const result = await page.evaluate(() => {
+            // Check for standard <select>
             const engineSelect = document.querySelector(
                 'select[name*="engine"], ' +
                 'select[name*="search"], ' +
@@ -378,19 +379,46 @@ const AdvancedOptionsTests = {
                 '#engine'
             );
 
-            if (!engineSelect) return { hasSelect: false };
+            if (engineSelect && engineSelect.tagName === 'SELECT') {
+                const options = Array.from(engineSelect.options).map(o => o.text);
+                return { hasSelect: true, optionCount: options.length, options: options.slice(0, 10) };
+            }
 
-            const options = Array.from(engineSelect.options).map(o => o.text);
+            // Check for custom dropdown component (used by LDR)
+            const customInput = document.querySelector('#search_engine, input[id="search_engine"]');
+            if (customInput) {
+                return { hasSelect: true, isCustom: true, needsClick: true };
+            }
 
-            return {
-                hasSelect: true,
-                optionCount: options.length,
-                options: options.slice(0, 10)
-            };
+            return { hasSelect: false };
         });
 
         if (!result.hasSelect) {
             return { passed: null, skipped: true, message: 'No search engine dropdown found' };
+        }
+
+        // Custom dropdown items are only rendered when the dropdown is opened
+        if (result.isCustom && result.needsClick) {
+            // Click the custom dropdown input to open it and populate items
+            await page.click('#search_engine');
+            await delay(500);
+
+            const customResult = await page.evaluate(() => {
+                const customInput = document.querySelector('#search_engine');
+                const dropdown = customInput.closest('.ldr-custom-dropdown') || customInput.parentElement;
+                const items = dropdown ? dropdown.querySelectorAll('.ldr-custom-dropdown-item, [data-value]') : [];
+                const options = Array.from(items).map(i => i.textContent?.trim()).filter(Boolean);
+                return { optionCount: options.length, options: options.slice(0, 10) };
+            });
+
+            // Close the dropdown by clicking elsewhere
+            await page.click('body');
+            await delay(100);
+
+            return {
+                passed: customResult.optionCount > 0,
+                message: `Search engine dropdown (custom): ${customResult.optionCount} options (${customResult.options.join(', ')})`
+            };
         }
 
         return {
