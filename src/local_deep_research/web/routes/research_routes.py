@@ -15,7 +15,7 @@ from flask import (
 )
 from loguru import logger
 from ...settings.logger import log_settings
-from sqlalchemy import func
+from ..queue.manager import QueueManager
 
 # Security imports
 from ...constants import ResearchStatus
@@ -32,7 +32,6 @@ from ...config.paths import get_config_directory
 from ..services.pdf_extraction_service import get_pdf_extraction_service
 
 from ...database.models import (
-    QueuedResearch,
     ResearchHistory,
     ResearchLog,
     UserActiveResearch,
@@ -474,26 +473,17 @@ def start_research():
 
             if should_queue:
                 # Add to queue instead of starting immediately
-                # Get the next position in queue for this user
-                max_position = (
-                    db_session.query(func.max(QueuedResearch.position))
-                    .filter_by(username=username)
-                    .scalar()
-                    or 0
+                max_position = QueueManager.add_to_queue(
+                    username,
+                    research_id,
+                    query,
+                    mode,
+                    research_settings,
+                    db_session=db_session,
                 )
-
-                queued_record = QueuedResearch(
-                    username=username,
-                    research_id=research_id,
-                    query=query,
-                    mode=mode,
-                    settings_snapshot=research_settings,
-                    position=max_position + 1,
-                )
-                db_session.add(queued_record)
                 db_session.commit()
                 logger.info(
-                    f"Queued research {research_id} at position {max_position + 1} for user {username}"
+                    f"Queued research {research_id} at position {max_position} for user {username}"
                 )
 
                 # Notify queue processor with all parameters for potential direct execution
@@ -526,8 +516,8 @@ def start_research():
                     {
                         "status": ResearchStatus.QUEUED,
                         "research_id": research_id,
-                        "queue_position": max_position + 1,
-                        "message": f"Your research has been queued. Position in queue: {max_position + 1}",
+                        "queue_position": max_position,
+                        "message": f"Your research has been queued. Position in queue: {max_position}",
                     }
                 )
             else:
@@ -574,22 +564,14 @@ def start_research():
                         db_session.commit()
 
                         # Add to queue
-                        max_position = (
-                            db_session.query(func.max(QueuedResearch.position))
-                            .filter_by(username=username)
-                            .scalar()
-                            or 0
+                        max_position = QueueManager.add_to_queue(
+                            username,
+                            research_id,
+                            query,
+                            mode,
+                            research_settings,
+                            db_session=db_session,
                         )
-
-                        queued_record = QueuedResearch(
-                            username=username,
-                            research_id=research_id,
-                            query=query,
-                            mode=mode,
-                            settings_snapshot=research_settings,
-                            position=max_position + 1,
-                        )
-                        db_session.add(queued_record)
 
                         # Update research status to queued
                         research.status = ResearchStatus.QUEUED
@@ -624,8 +606,8 @@ def start_research():
                             {
                                 "status": ResearchStatus.QUEUED,
                                 "research_id": research_id,
-                                "queue_position": max_position + 1,
-                                "message": f"Your research has been queued due to concurrent limit. Position in queue: {max_position + 1}",
+                                "queue_position": max_position,
+                                "message": f"Your research has been queued due to concurrent limit. Position in queue: {max_position}",
                             }
                         )
                 except Exception as e:

@@ -103,10 +103,11 @@ class TestStartQueuedResearchesErrorRecovery:
         )
 
     def test_success_deletes_queued_record(self, processor):
-        """On success, the queued_research is deleted from DB."""
+        """On success, the queued_research is deleted from DB and positions reordered."""
         queued = Mock()
         queued.is_processing = False
         queued.research_id = "res-3"
+        queued.position = 1
 
         mock_session = Mock()
         mock_query = Mock()
@@ -114,6 +115,11 @@ class TestStartQueuedResearchesErrorRecovery:
         mock_query.order_by.return_value = mock_query
         mock_query.limit.return_value = mock_query
         mock_query.all.return_value = [queued]
+        # QueueManager.remove_from_queue uses .first() to find the record
+        mock_query.first.return_value = queued
+        # and .filter().update() to reorder positions
+        mock_query.filter.return_value = mock_query
+        mock_query.update.return_value = None
         mock_session.query.return_value = mock_query
 
         mock_queue_service = Mock()

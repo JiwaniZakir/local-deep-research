@@ -576,8 +576,12 @@ class QueueProcessorV2:
                     queued_research,
                 )
 
-                # Remove from queue
-                db_session.delete(queued_research)
+                # Remove from queue (reorders positions of remaining items)
+                from .manager import QueueManager
+
+                QueueManager.remove_from_queue(
+                    username, queued_research.research_id, db_session=db_session
+                )
                 db_session.commit()
 
                 logger.info(
