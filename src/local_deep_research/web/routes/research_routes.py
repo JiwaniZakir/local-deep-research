@@ -32,6 +32,7 @@ from ...config.paths import get_config_directory
 from ..services.pdf_extraction_service import get_pdf_extraction_service
 
 from ...database.models import (
+    QueuedResearch,
     ResearchHistory,
     ResearchLog,
     UserActiveResearch,
@@ -864,6 +865,11 @@ def delete_research(research_id):
                 except Exception:
                     logger.exception("Error removing report file")
 
+            # Remove from queue if present (no-op if not queued)
+            QueueManager.remove_from_queue(
+                username, research_id, db_session=db_session
+            )
+
             # Delete the database record
             db_session.delete(research)
             db_session.commit()
@@ -902,6 +908,18 @@ def clear_history():
                         Path(research.report_path).unlink()
                     except Exception:
                         logger.exception("Error removing report file")
+
+            # Remove queued research records (no position reorder needed
+            # since we're deleting all non-active items)
+            if active_ids:
+                db_session.query(QueuedResearch).filter(
+                    QueuedResearch.username == username,
+                    ~QueuedResearch.research_id.in_(active_ids),
+                ).delete(synchronize_session=False)
+            else:
+                db_session.query(QueuedResearch).filter(
+                    QueuedResearch.username == username,
+                ).delete(synchronize_session=False)
 
             # Delete records from the database, except active research
             if active_ids:

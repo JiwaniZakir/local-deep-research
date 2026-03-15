@@ -111,6 +111,95 @@ class TestQueueManagerAddToQueue:
                     settings={},
                 )
 
+    def test_add_to_queue_with_db_session_propagates_query_error(self):
+        """Test that query errors propagate to caller when db_session is provided."""
+        mock_session = MagicMock()
+        mock_session.query.side_effect = RuntimeError("DB exploded")
+
+        from local_deep_research.web.queue.manager import QueueManager
+
+        with pytest.raises(RuntimeError, match="DB exploded"):
+            QueueManager.add_to_queue(
+                username="testuser",
+                research_id="test-id-err",
+                query="test query",
+                mode="detailed",
+                settings={},
+                db_session=mock_session,
+            )
+
+    def test_add_to_queue_sends_notification(self):
+        """Test that send_queue_notification is called with correct args."""
+        mock_session = MagicMock()
+        mock_query = MagicMock()
+        mock_query.filter_by.return_value.scalar.return_value = 0
+        mock_session.query.return_value = mock_query
+
+        with (
+            patch(
+                "local_deep_research.web.queue.manager.get_user_db_session",
+                _mock_user_db_session(mock_session),
+            ),
+            patch(
+                "local_deep_research.settings.SettingsManager"
+            ) as mock_settings_cls,
+            patch(
+                "local_deep_research.notifications.send_queue_notification"
+            ) as mock_notify,
+        ):
+            mock_settings_cls.return_value.get_settings_snapshot.return_value = {
+                "k": "v"
+            }
+
+            from local_deep_research.web.queue.manager import QueueManager
+
+            QueueManager.add_to_queue(
+                username="testuser",
+                research_id="test-id-notif",
+                query="notif query",
+                mode="detailed",
+                settings={},
+            )
+
+            mock_notify.assert_called_once_with(
+                username="testuser",
+                research_id="test-id-notif",
+                query="notif query",
+                settings_snapshot={"k": "v"},
+                position=1,
+            )
+
+    def test_add_to_queue_notification_failure_does_not_break(self):
+        """Test that a notification exception is caught and the queue record is still added."""
+        mock_session = MagicMock()
+        mock_query = MagicMock()
+        mock_query.filter_by.return_value.scalar.return_value = 0
+        mock_session.query.return_value = mock_query
+
+        with (
+            patch(
+                "local_deep_research.web.queue.manager.get_user_db_session",
+                _mock_user_db_session(mock_session),
+            ),
+            patch(
+                "local_deep_research.settings.SettingsManager",
+                side_effect=RuntimeError("notification boom"),
+            ),
+        ):
+            from local_deep_research.web.queue.manager import QueueManager
+
+            result = QueueManager.add_to_queue(
+                username="testuser",
+                research_id="test-id-boom",
+                query="boom query",
+                mode="detailed",
+                settings={},
+            )
+
+            assert result == 1
+            mock_session.add.assert_called_once()
+            mock_session.commit.assert_called_once()
+
     def test_add_to_queue_with_existing_items(self):
         """Test add_to_queue with existing items in queue."""
         mock_session = MagicMock()
@@ -282,6 +371,26 @@ class TestQueueManagerRemoveFromQueue:
             )
 
             assert result is False
+
+    def test_remove_from_queue_not_found_with_db_session(self):
+        """Test remove_from_queue with db_session when not found — returns False, no commit, no delete."""
+        mock_session = MagicMock()
+
+        mock_query = MagicMock()
+        mock_query.filter_by.return_value.first.return_value = None
+        mock_session.query.return_value = mock_query
+
+        from local_deep_research.web.queue.manager import QueueManager
+
+        result = QueueManager.remove_from_queue(
+            username="testuser",
+            research_id="nonexistent",
+            db_session=mock_session,
+        )
+
+        assert result is False
+        mock_session.delete.assert_not_called()
+        mock_session.commit.assert_not_called()
 
     def test_remove_from_queue_no_connection(self):
         """Test remove_from_queue raises DatabaseSessionError when no connection."""
