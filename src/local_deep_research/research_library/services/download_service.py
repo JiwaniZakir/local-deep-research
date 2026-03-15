@@ -9,6 +9,7 @@ Handles downloading PDFs from various academic sources with:
 """
 
 import hashlib
+import os
 import re
 import time
 import uuid
@@ -100,7 +101,9 @@ class DownloadService:
             raise ValueError("Storage path setting cannot be None")
 
         self.library_root = str(
-            Path(storage_path_setting).expanduser().resolve()
+            Path(os.path.expandvars(storage_path_setting))
+            .expanduser()
+            .resolve()
         )
         logger.warning(
             f"[DOWNLOAD_SERVICE_INIT] Library root resolved to: {self.library_root}"
@@ -150,12 +153,10 @@ class DownloadService:
             return
         self._closed = True
 
+        from ...utilities.resource_utils import safe_close
+
         for downloader in self.downloaders:
-            if hasattr(downloader, "close"):
-                try:
-                    downloader.close()
-                except Exception:
-                    pass
+            safe_close(downloader, "downloader")
 
         # Clear references to allow garbage collection
         self.downloaders = []
