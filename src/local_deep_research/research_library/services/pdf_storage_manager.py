@@ -33,14 +33,14 @@ class PDFStorageManager:
 
         Args:
             library_root: Base directory for filesystem storage
-            storage_mode: One of 'none', 'filesystem', 'database'
+            storage_mode: One of 'none', 'filesystem', 'database', or 'auto' (check both)
             max_pdf_size_mb: Maximum PDF file size in MB (default 100)
         """
         self.library_root = Path(library_root).resolve()
         self.storage_mode = storage_mode
         self.max_pdf_size_bytes = max_pdf_size_mb * 1024 * 1024
 
-        if storage_mode not in ("none", "filesystem", "database"):
+        if storage_mode not in ("none", "filesystem", "database", "auto"):
             logger.warning(
                 f"Unknown storage mode '{storage_mode}', defaulting to 'none'"
             )
