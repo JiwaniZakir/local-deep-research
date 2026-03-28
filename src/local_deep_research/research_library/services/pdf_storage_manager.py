@@ -33,7 +33,8 @@ class PDFStorageManager:
 
         Args:
             library_root: Base directory for filesystem storage
-            storage_mode: One of 'none', 'filesystem', 'database', or 'auto' (check both)
+            storage_mode: One of 'none', 'filesystem', 'database', or 'auto'
+                (read-only callers that don't need save_pdf)
             max_pdf_size_mb: Maximum PDF file size in MB (default 100)
         """
         self.library_root = Path(library_root).resolve()
