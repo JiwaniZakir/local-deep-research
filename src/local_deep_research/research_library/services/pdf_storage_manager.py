@@ -115,8 +115,14 @@ class PDFStorageManager:
             )
             return None, file_size
 
-        if self.storage_mode == "none":
-            logger.debug("PDF storage mode is 'none' - skipping PDF save")
+        if self.storage_mode in ("none", "auto"):
+            if self.storage_mode == "auto":
+                logger.warning(
+                    "save_pdf() called with storage_mode='auto' — "
+                    "'auto' is for read-only callers; no PDF saved"
+                )
+            else:
+                logger.debug("PDF storage mode is 'none' - skipping PDF save")
             return None, file_size
 
         elif self.storage_mode == "filesystem":
