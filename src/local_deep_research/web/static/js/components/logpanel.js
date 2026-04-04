@@ -892,7 +892,7 @@
             const message = logEntry.message || logEntry.content || '';
             const logType = (logEntry.type || 'info').toLowerCase();
 
-            // Check 10 most recent entries (newest are at DOM start due to insertBefore)
+            // Check 10 most recent entries (newest are at DOM end due to appendChild)
             for (let i = 0; i < Math.min(10, existingEntries.length); i++) {
                 const entry = existingEntries[i];
                 const entryMessage = entry.querySelector('.ldr-log-message')?.textContent;
@@ -928,9 +928,9 @@
 
         const element = createLogEntryElement(logEntry);
 
-        // Add to container (at the beginning for newest first)
+        // Add to container (at the end; column-reverse CSS makes DOM-end appear at visual top)
         if (element) {
-            consoleLogContainer.insertBefore(element, consoleLogContainer.firstChild);
+            consoleLogContainer.appendChild(element);
         }
 
         // Prune oldest entries if over limit to prevent unbounded DOM growth
